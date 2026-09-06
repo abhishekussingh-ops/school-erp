@@ -1,0 +1,116 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum AdmissionStatus {
+  INQUIRY
+  CONTACTED
+  SCHEDULED
+  ENROLLED
+  REJECTED
+}
+
+enum FeeStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+model School {
+  id         String             @id @default(cuid())
+  name       String
+  subdomain  String             @unique
+  createdAt  DateTime           @default(now())
+  users      User[]
+  admissions Admission[]
+  students   Student[]
+  fees       FeeRecord[]
+  attendance AttendanceRecord[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  email     String   @unique
+  name      String
+  role      Role     @default(TEACHER)
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+}
+
+model Student {
+  id             String             @id @default(cuid())
+  schoolId       String
+  school         School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  rollNumber     String
+  name           String
+  grade          String
+  section        String
+  classSectionId String             @default("cs1") // <-- Add this field
+  gender         String
+  fees           FeeRecord[]
+  attendance     AttendanceRecord[]
+  createdAt      DateTime           @default(now())
+
+  @@unique([schoolId, rollNumber])
+  @@index([schoolId])
+}
+
+model Admission {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentName String
+  parentName  String
+  phone       String
+  grade       String
+  source      String?  @default("Walk-in")
+  status      String   @default("New")
+  createdAt   DateTime @default(now())
+
+  @@index([schoolId])
+}
+
+model FeeRecord {
+  id        String    @id @default(cuid())
+  schoolId  String
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title     String
+  amount    Decimal   @db.Decimal(10, 2)
+  dueDate   DateTime
+  status    FeeStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+
+  @@index([schoolId])
+}
+
+model AttendanceRecord {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  status    String // "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY"
+  remarks   String?
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, date])
+  @@index([schoolId, date])
+}
