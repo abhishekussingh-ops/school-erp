@@ -1,39 +1,142 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { UserPlus, Download, Filter, Plus, Phone, Mail, Calendar, ChevronRight } from 'lucide-react';
-import { enquiries } from '@/lib/mock-data';
-import { EnquiryStatus, Enquiry } from '@/lib/types';
+import { UserPlus, Download, Filter, Plus } from 'lucide-react';
+import { getAdmissions, updateAdmissionStatus } from "./actions";
+import { Enquiry, EnquiryStatus } from '@/lib/types';
 import { EnquiryKanban } from '@/components/admissions/enquiry-kanban';
 import { EnquiryTable } from '@/components/admissions/enquiry-table';
 import { EnquiryDetail } from '@/components/admissions/enquiry-detail';
 import { EnquiryForm } from '@/components/admissions/enquiry-form';
 
-const statusColors: Record<EnquiryStatus, string> = {
-  'New': 'bg-blue-100 text-blue-700 border-blue-200',
-  'Contacted': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  'Visit Scheduled': 'bg-violet-100 text-violet-700 border-violet-200',
-  'Application Submitted': 'bg-amber-100 text-amber-700 border-amber-200',
-  'Documents Verified': 'bg-teal-100 text-teal-700 border-teal-200',
-  'Admitted': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  'Rejected': 'bg-rose-100 text-rose-700 border-rose-200',
-};
-
-const pipelineStages: EnquiryStatus[] = ['New', 'Contacted', 'Visit Scheduled', 'Application Submitted', 'Documents Verified', 'Admitted', 'Rejected'];
+function normalizeStatus(raw: string): EnquiryStatus {
+  switch (raw) {
+    case 'INQUIRY':
+    case 'New':
+      return 'New';
+    case 'CONTACTED':
+    case 'Contacted':
+      return 'Contacted';
+    case 'SCHEDULED':
+    case 'Visit Scheduled':
+      return 'Visit Scheduled';
+    case 'Application Submitted':
+      return 'Application Submitted';
+    case 'Documents Verified':
+      return 'Documents Verified';
+    case 'ENROLLED':
+    case 'Admitted':
+      return 'Admitted';
+    case 'REJECTED':
+    case 'Rejected':
+      return 'Rejected';
+    default:
+      return (raw as EnquiryStatus) || 'New';
+  }
+}
 
 export default function AdmissionsPage() {
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filterClass, setFilterClass] = useState<string>('all');
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredEnquiries = filterClass === 'all' ? enquiries : enquiries.filter(e => e.classApplied === filterClass);
-  const conversionRate = Math.round((enquiries.filter(e => e.status === 'Admitted').length / enquiries.length) * 100);
+  const loadData = useCallback(async () => {
+    try {
+      const data = await getAdmissions("greenwood");
+      
+      const mapped: Enquiry[] = (data || []).map((item) => ({
+        id: item.id,
+        studentName: item.studentName,
+        parentName: item.parentName,
+        phone: item.phone,
+        email: '',
+        classApplied: item.grade,
+        status: normalizeStatus(item.status),
+        source: item.source || 'Walk-in',
+        date: item.createdAt ? new Date(item.createdAt).toISOString().split('T')[0] : '',
+        followUpDate: '',
+        notes: [],
+        counselor: 'Admissions Desk',
+      }));
+
+      setEnquiries(mapped);
+    } catch (err) {
+      console.error("Failed to load admissions:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleEnquiryCreated = async (newRecord?: any) => {
+    setShowForm(false);
+    if (newRecord && newRecord.id) {
+      const formatted: Enquiry = {
+        id: newRecord.id,
+        studentName: newRecord.studentName,
+        parentName: newRecord.parentName,
+        phone: newRecord.phone,
+        email: '',
+        classApplied: newRecord.grade,
+        status: normalizeStatus(newRecord.status || 'New'),
+        source: newRecord.source || 'Walk-in',
+        date: newRecord.createdAt
+          ? new Date(newRecord.createdAt).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0],
+        followUpDate: '',
+        notes: [],
+        counselor: 'Admissions Desk',
+      };
+      setEnquiries((prev) => [formatted, ...prev]);
+    } else {
+      await loadData();
+    }
+  };
+
+  // Status transition function
+  const handleStatusChange = async (enquiryId: string, newStatus: EnquiryStatus) => {
+    // 1. Optimistically update local state so cards move immediately
+    setEnquiries((prev) =>
+      prev.map((e) => (e.id === enquiryId ? { ...e, status: newStatus } : e))
+    );
+    if (selectedEnquiry && selectedEnquiry.id === enquiryId) {
+      setSelectedEnquiry((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+
+    // 2. Persist to PostgreSQL
+    try {
+      await updateAdmissionStatus(enquiryId, newStatus);
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      loadData(); // Roll back on failure
+    }
+  };
+
+  const filteredEnquiries = filterClass === 'all' 
+    ? enquiries 
+    : enquiries.filter(e => e.classApplied === filterClass);
+
+  const total = enquiries.length;
+  const admittedCount = enquiries.filter(e => e.status === 'Admitted').length;
+  const conversionRate = total > 0 ? Math.round((admittedCount / total) * 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-slate-500">Loading admissions from database...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -62,19 +165,23 @@ export default function AdmissionsPage() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
           <Card className="p-3">
             <p className="text-xs text-slate-500">Total Enquiries</p>
-            <p className="text-xl font-bold text-slate-900">{enquiries.length}</p>
+            <p className="text-xl font-bold text-slate-900">{total}</p>
           </Card>
           <Card className="p-3">
             <p className="text-xs text-slate-500">In Pipeline</p>
-            <p className="text-xl font-bold text-blue-600">{enquiries.filter(e => !['Admitted', 'Rejected'].includes(e.status)).length}</p>
+            <p className="text-xl font-bold text-blue-600">
+              {enquiries.filter(e => !['Admitted', 'Rejected'].includes(e.status)).length}
+            </p>
           </Card>
           <Card className="p-3">
             <p className="text-xs text-slate-500">Admitted</p>
-            <p className="text-xl font-bold text-emerald-600">{enquiries.filter(e => e.status === 'Admitted').length}</p>
+            <p className="text-xl font-bold text-emerald-600">{admittedCount}</p>
           </Card>
           <Card className="p-3">
             <p className="text-xs text-slate-500">Rejected</p>
-            <p className="text-xl font-bold text-rose-600">{enquiries.filter(e => e.status === 'Rejected').length}</p>
+            <p className="text-xl font-bold text-rose-600">
+              {enquiries.filter(e => e.status === 'Rejected').length}
+            </p>
           </Card>
           <Card className="p-3">
             <p className="text-xs text-slate-500">Conversion Rate</p>
@@ -82,7 +189,9 @@ export default function AdmissionsPage() {
           </Card>
           <Card className="p-3">
             <p className="text-xs text-slate-500">Follow-ups Due</p>
-            <p className="text-xl font-bold text-amber-600">{enquiries.filter(e => e.followUpDate).length}</p>
+            <p className="text-xl font-bold text-amber-600">
+              {enquiries.filter(e => e.followUpDate).length}
+            </p>
           </Card>
         </div>
 
@@ -123,69 +232,32 @@ export default function AdmissionsPage() {
 
         {/* Content */}
         {view === 'kanban' ? (
-          <EnquiryKanban enquiries={filteredEnquiries} onSelect={setSelectedEnquiry} />
+          <EnquiryKanban 
+            enquiries={filteredEnquiries} 
+            onSelect={setSelectedEnquiry} 
+            onStatusChange={handleStatusChange} 
+          />
         ) : (
-          <EnquiryTable enquiries={filteredEnquiries} onSelect={setSelectedEnquiry} />
+          <EnquiryTable 
+            enquiries={filteredEnquiries} 
+            onSelect={setSelectedEnquiry} 
+            onStatusChange={handleStatusChange}
+          />
         )}
-
-        {/* Source-wise Performance */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Source-wise Performance</h3>
-            <div className="space-y-2">
-              {['Walk-in', 'Website', 'Phone', 'Referral'].map(source => {
-                const sourceEnquiries = enquiries.filter(e => e.source === source);
-                const admitted = sourceEnquiries.filter(e => e.status === 'Admitted').length;
-                const rate = sourceEnquiries.length > 0 ? Math.round((admitted / sourceEnquiries.length) * 100) : 0;
-                return (
-                  <div key={source} className="flex items-center gap-3">
-                    <div className="w-20 text-sm text-slate-600">{source}</div>
-                    <div className="flex-1">
-                      <div className="h-6 w-full rounded-full bg-slate-100">
-                        <div className="flex h-6 items-center rounded-full bg-blue-500 px-2 text-[10px] font-semibold text-white" style={{ width: `${Math.max(rate, 15)}%` }}>
-                          {rate > 15 && `${rate}%`}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-16 text-right text-xs text-slate-500">{admitted}/{sourceEnquiries.length}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Class-wise Seat Availability</h3>
-            <div className="space-y-2">
-              {['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].map(cls => {
-                const capacity = 35;
-                const occupied = 10;
-                const available = capacity - occupied;
-                const pct = Math.round((occupied / capacity) * 100);
-                return (
-                  <div key={cls} className="flex items-center gap-3">
-                    <div className="w-20 text-sm text-slate-600">{cls}</div>
-                    <div className="flex-1">
-                      <div className="h-6 w-full rounded-full bg-slate-100">
-                        <div className={cn('flex h-6 items-center rounded-full px-2 text-[10px] font-semibold text-white', pct > 80 ? 'bg-rose-500' : pct > 50 ? 'bg-amber-500' : 'bg-emerald-500')} style={{ width: `${Math.max(pct, 15)}%` }}>
-                          {pct > 15 && `${occupied}/${capacity}`}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-16 text-right text-xs text-slate-500">{available} seats</div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
       </div>
 
       {selectedEnquiry && (
-        <EnquiryDetail enquiry={selectedEnquiry} onClose={() => setSelectedEnquiry(null)} />
+        <EnquiryDetail 
+          enquiry={selectedEnquiry} 
+          onClose={() => setSelectedEnquiry(null)} 
+          onStatusChange={(newStatus: EnquiryStatus) => handleStatusChange(selectedEnquiry.id, newStatus)}
+        />
       )}
       {showForm && (
-        <EnquiryForm onClose={() => setShowForm(false)} />
+        <EnquiryForm 
+          onClose={() => setShowForm(false)} 
+          onSuccess={handleEnquiryCreated}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +12,10 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import {
-  students, feeHeads, feeInstallments, feeReceipts, classSections, getClassName,
+  feeHeads, feeReceipts,
 } from '@/lib/mock-data';
 import { PaymentDialog } from '@/components/fees/payment-dialog';
+import { getFees } from './actions';
 
 const statusColors: Record<string, string> = {
   'Paid': 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -29,33 +30,75 @@ const modeBreakdown = [
   { mode: 'Card', amount: 295000, fill: '#8b5cf6' },
 ];
 
-const headWiseIncome = [
-  { head: 'Tuition', amount: 1450000 },
-  { head: 'Transport', amount: 320000 },
-  { head: 'Exam', amount: 90000 },
-  { head: 'Lab', amount: 50000 },
-  { head: 'Library', amount: 60000 },
-];
-
 export default function FeesPage() {
   const { role, currentUser } = useApp();
   const [showPayment, setShowPayment] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [tab, setTab] = useState<'collection' | 'structure' | 'ledger' | 'receipts' | 'reports'>('collection');
+  
+  // Real database state
+  const [dbFees, setDbFees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    try {
+      const data = await getFees("greenwood");
+      setDbFees(data || []);
+    } catch (e) {
+      console.error("Failed to load fees:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Map database rows to UI fee installment structure
+  const feeInstallments = dbFees.map((f) => ({
+    id: f.id,
+    studentId: f.studentId,
+    studentName: f.student?.name || 'Unknown Student',
+    className: `${f.student?.grade || ''} ${f.student?.section || ''}`.trim(),
+    headName: f.title,
+    amount: Number(f.amount),
+    dueDate: f.dueDate ? new Date(f.dueDate).toISOString().split('T')[0] : '',
+    paidDate: f.status === 'PAID' ? new Date(f.createdAt).toISOString().split('T')[0] : undefined,
+    status: f.status === 'PAID' ? 'Paid' : f.status === 'OVERDUE' ? 'Overdue' : 'Due',
+  }));
+
+  // Dynamic calculations from database records
   const totalCollected = feeInstallments.filter(fi => fi.status === 'Paid').reduce((s, fi) => s + fi.amount, 0);
   const totalDue = feeInstallments.filter(fi => fi.status === 'Due').reduce((s, fi) => s + fi.amount, 0);
   const totalOverdue = feeInstallments.filter(fi => fi.status === 'Overdue').reduce((s, fi) => s + fi.amount, 0);
   const defaulters = feeInstallments.filter(fi => fi.status === 'Overdue');
+
+  // Head-wise income chart powered by real records
+  const headWiseIncome = [
+    { head: 'Tuition', amount: feeInstallments.filter(f => f.headName.toLowerCase().includes('tuition')).reduce((s, f) => s + f.amount, 0) },
+    { head: 'Transport', amount: feeInstallments.filter(f => f.headName.toLowerCase().includes('transport')).reduce((s, f) => s + f.amount, 0) },
+    { head: 'Exam', amount: feeInstallments.filter(f => f.headName.toLowerCase().includes('exam')).reduce((s, f) => s + f.amount, 0) },
+    { head: 'Lab', amount: feeInstallments.filter(f => f.headName.toLowerCase().includes('lab')).reduce((s, f) => s + f.amount, 0) },
+    { head: 'Library', amount: feeInstallments.filter(f => f.headName.toLowerCase().includes('library')).reduce((s, f) => s + f.amount, 0) },
+  ];
 
   const isAdmin = role === 'school_admin' || role === 'super_admin';
   const isParent = role === 'parent';
   const isStudent = role === 'student';
 
   // For parent/student: show their own fee ledger
-  const myStudentId = isParent ? (currentUser.linkedStudentIds?.[0] || 'st1') : isStudent ? (currentUser.linkedStudentId || 'st1') : null;
+  const myStudentId = isParent ? (currentUser?.linkedStudentIds?.[0] || 'st1') : isStudent ? (currentUser?.linkedStudentId || 'st1') : null;
   const myFees = myStudentId ? feeInstallments.filter(fi => fi.studentId === myStudentId) : [];
   const myDue = myFees.filter(fi => fi.status !== 'Paid').reduce((s, fi) => s + fi.amount, 0);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-slate-500">Loading fees from database...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -72,7 +115,7 @@ export default function FeesPage() {
               <span className="hidden sm:inline">Export</span>
             </Button>
             {(isAdmin || isParent) && (
-              <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => { setSelectedStudentId(myStudentId || 'st1'); setShowPayment(true); }}>
+              <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => { setSelectedStudentId(myStudentId || (feeInstallments[0]?.studentId || '')); setShowPayment(true); }}>
                 <CreditCard className="h-4 w-4" />
                 <span className="hidden sm:inline">Collect / Pay Fee</span>
               </Button>
@@ -188,20 +231,17 @@ export default function FeesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {defaulters.slice(0, 8).map(fi => {
-                      const student = students.find(s => s.id === fi.studentId);
-                      return (
-                        <tr key={fi.id} className="hover:bg-slate-50">
-                          <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{student?.name}</td>
-                          <td className="px-3 py-2.5 text-sm text-slate-600">{student ? getClassName(student.classSectionId) : ''}</td>
-                          <td className="px-3 py-2.5 text-sm text-slate-600">{fi.headName}</td>
-                          <td className="px-3 py-2.5 text-sm font-semibold text-slate-800">₹{fi.amount.toLocaleString('en-IN')}</td>
-                          <td className="px-3 py-2.5 text-sm text-slate-500">{fi.dueDate}</td>
-                          <td className="px-3 py-2.5"><Badge variant="outline" className={cn('text-[10px]', statusColors[fi.status])}>{fi.status}</Badge></td>
-                          <td className="px-3 py-2.5"><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setSelectedStudentId(fi.studentId); setShowPayment(true); }}>Collect</Button></td>
-                        </tr>
-                      );
-                    })}
+                    {defaulters.slice(0, 8).map(fi => (
+                      <tr key={fi.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{fi.studentName}</td>
+                        <td className="px-3 py-2.5 text-sm text-slate-600">{fi.className}</td>
+                        <td className="px-3 py-2.5 text-sm text-slate-600">{fi.headName}</td>
+                        <td className="px-3 py-2.5 text-sm font-semibold text-slate-800">₹{fi.amount.toLocaleString('en-IN')}</td>
+                        <td className="px-3 py-2.5 text-sm text-slate-500">{fi.dueDate}</td>
+                        <td className="px-3 py-2.5"><Badge variant="outline" className={cn('text-[10px]', statusColors[fi.status])}>{fi.status}</Badge></td>
+                        <td className="px-3 py-2.5"><Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setSelectedStudentId(fi.studentId); setShowPayment(true); }}>Collect</Button></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -269,20 +309,17 @@ export default function FeesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {feeInstallments.slice(0, 20).map(fi => {
-                    const student = students.find(s => s.id === fi.studentId);
-                    return (
-                      <tr key={fi.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{student?.name}</td>
-                        <td className="px-3 py-2.5 text-sm text-slate-600">{student ? getClassName(student.classSectionId) : ''}</td>
-                        <td className="px-3 py-2.5 text-sm text-slate-600">{fi.headName}</td>
-                        <td className="px-3 py-2.5 text-sm font-semibold text-slate-800">₹{fi.amount.toLocaleString('en-IN')}</td>
-                        <td className="px-3 py-2.5 text-sm text-slate-500">{fi.dueDate}</td>
-                        <td className="px-3 py-2.5"><Badge variant="outline" className={cn('text-[10px]', statusColors[fi.status])}>{fi.status}</Badge></td>
-                        <td className="px-3 py-2.5">{fi.status !== 'Paid' && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setSelectedStudentId(fi.studentId); setShowPayment(true); }}>Collect</Button>}</td>
-                      </tr>
-                    );
-                  })}
+                  {feeInstallments.slice(0, 20).map(fi => (
+                    <tr key={fi.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{fi.studentName}</td>
+                      <td className="px-3 py-2.5 text-sm text-slate-600">{fi.className}</td>
+                      <td className="px-3 py-2.5 text-sm text-slate-600">{fi.headName}</td>
+                      <td className="px-3 py-2.5 text-sm font-semibold text-slate-800">₹{fi.amount.toLocaleString('en-IN')}</td>
+                      <td className="px-3 py-2.5 text-sm text-slate-500">{fi.dueDate}</td>
+                      <td className="px-3 py-2.5"><Badge variant="outline" className={cn('text-[10px]', statusColors[fi.status])}>{fi.status}</Badge></td>
+                      <td className="px-3 py-2.5">{fi.status !== 'Paid' && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setSelectedStudentId(fi.studentId); setShowPayment(true); }}>Collect</Button>}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -370,7 +407,7 @@ export default function FeesPage() {
           </Card>
         )}
 
-        {/* Payment Reminders Placeholder */}
+        {/* Payment Reminders */}
         {(isParent || isStudent) && (
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -383,7 +420,13 @@ export default function FeesPage() {
       </div>
 
       {showPayment && selectedStudentId && (
-        <PaymentDialog studentId={selectedStudentId} onClose={() => setShowPayment(false)} />
+        <PaymentDialog 
+          studentId={selectedStudentId} 
+          onClose={() => {
+            setShowPayment(false);
+            loadData();
+          }} 
+        />
       )}
     </div>
   );
