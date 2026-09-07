@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 import { KpiCard } from './kpi-card';
 import { Card } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   Clock, CalendarCheck, BookOpen, GraduationCap, FileText,
-  Users, MapPin, AlertCircle,
+  Users, MapPin, AlertCircle, ChevronRight,
 } from 'lucide-react';
 import { timetableSlots, homeworks, examTerms, staff, classSections, leaveRequests } from '@/lib/mock-data';
 
@@ -24,10 +25,10 @@ export function TeacherDashboard() {
       <PageHeader title="Dashboard" description={`Welcome back, ${teacher?.name}`} />
       <div className="space-y-4 p-4 md:p-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard label="Today's Classes" value={String(todayClasses.length)} change="6 periods scheduled" icon={Clock} iconColor="text-cyan-600" iconBg="bg-cyan-50" />
-          <KpiCard label="Attendance Pending" value="2" change="Grade 6-A & 6-B" icon={CalendarCheck} iconColor="text-violet-600" iconBg="bg-violet-50" />
-          <KpiCard label="Homework Due" value={String(pendingHomework)} change="Needs review" icon={BookOpen} iconColor="text-pink-600" iconBg="bg-pink-50" />
-          <KpiCard label="Marks Entry Pending" value={String(pendingMarks)} change="Unit Test 1" icon={GraduationCap} iconColor="text-orange-600" iconBg="bg-orange-50" />
+          <KpiCard label="Today's Classes" value={String(todayClasses.length)} change="6 periods scheduled" icon={Clock} iconColor="text-cyan-600" iconBg="bg-cyan-50" href="/timetable?view=teacher" />
+          <KpiCard label="Attendance Pending" value="2" change="Grade 6-A & 6-B" icon={CalendarCheck} iconColor="text-violet-600" iconBg="bg-violet-50" href="/attendance?tab=students" />
+          <KpiCard label="Homework Due" value={String(pendingHomework)} change="Needs review" icon={BookOpen} iconColor="text-pink-600" iconBg="bg-pink-50" href="/communication?tab=homework" />
+          <KpiCard label="Marks Entry Pending" value={String(pendingMarks)} change="Unit Test 1" icon={GraduationCap} iconColor="text-orange-600" iconBg="bg-orange-50" href="/exams?tab=marks" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -38,7 +39,10 @@ export function TeacherDashboard() {
                 <h3 className="text-sm font-semibold text-slate-800">Today's Timetable</h3>
                 <p className="text-xs text-slate-500">{today}</p>
               </div>
-              <Badge variant="secondary" className="text-xs">{todayClasses.length} periods</Badge>
+              <Link href="/timetable?view=teacher" className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900 group">
+                Full schedule <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+              <Badge variant="secondary" className="text-xs ml-2">{todayClasses.length} periods</Badge>
             </div>
             <div className="space-y-2">
               {todayClasses.length === 0 ? (
@@ -47,18 +51,24 @@ export function TeacherDashboard() {
                 todayClasses.map((slot) => {
                   const cls = classSections.find(c => c.id === slot.classSectionId);
                   return (
-                    <div key={slot.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
-                        P{slot.period}
+                    <Link
+                      key={slot.id}
+                      href={`/attendance?tab=students&class=${cls?.className}${cls?.section}`}
+                    >
+                      <div className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 group transition-all hover:shadow-md hover:border-slate-300 cursor-pointer">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
+                          P{slot.period}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-800">{slot.subject}</p>
+                          <p className="text-xs text-slate-500">{cls?.className} {cls?.section} · Room {slot.room}</p>
+                        </div>
+                        {slot.isSpecial && (
+                          <Badge variant="outline" className="text-[10px] border-cyan-200 text-cyan-600">{slot.room}</Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">{slot.subject}</p>
-                        <p className="text-xs text-slate-500">{cls?.className} {cls?.section} · Room {slot.room}</p>
-                      </div>
-                      {slot.isSpecial && (
-                        <Badge variant="outline" className="text-[10px] border-cyan-200 text-cyan-600">{slot.room}</Badge>
-                      )}
-                    </div>
+                    </Link>
                   );
                 })
               )}
@@ -70,32 +80,43 @@ export function TeacherDashboard() {
             <Card className="p-4">
               <h3 className="text-sm font-semibold text-slate-800 mb-3">Action Required</h3>
               <div className="space-y-2">
-                <div className="flex items-start gap-2 rounded-lg bg-violet-50 p-3">
-                  <AlertCircle className="h-4 w-4 text-violet-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Mark attendance for Grade 6-A</p>
-                    <p className="text-xs text-slate-500">Due before 10:00 AM</p>
+                <Link href="/attendance?tab=students">
+                  <div className="flex items-start gap-2 rounded-lg bg-violet-50 p-3 group transition-all hover:shadow-sm cursor-pointer">
+                    <AlertCircle className="h-4 w-4 text-violet-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Mark attendance for Grade 6-A</p>
+                      <p className="text-xs text-slate-500">Due before 10:00 AM</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-2 rounded-lg bg-orange-50 p-3">
-                  <GraduationCap className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Enter Unit Test 1 marks</p>
-                    <p className="text-xs text-slate-500">Mathematics · Grade 6-A</p>
+                </Link>
+                <Link href="/exams?tab=marks">
+                  <div className="flex items-start gap-2 rounded-lg bg-orange-50 p-3 group transition-all hover:shadow-sm cursor-pointer">
+                    <GraduationCap className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Enter Unit Test 1 marks</p>
+                      <p className="text-xs text-slate-500">Mathematics · Grade 6-A</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-2 rounded-lg bg-pink-50 p-3">
-                  <BookOpen className="h-4 w-4 text-pink-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Review homework submissions</p>
-                    <p className="text-xs text-slate-500">3 submissions pending</p>
+                </Link>
+                <Link href="/communication?tab=homework">
+                  <div className="flex items-start gap-2 rounded-lg bg-pink-50 p-3 group transition-all hover:shadow-sm cursor-pointer">
+                    <BookOpen className="h-4 w-4 text-pink-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Review homework submissions</p>
+                      <p className="text-xs text-slate-500">3 submissions pending</p>
+                    </div>
                   </div>
-                </div>
+                </Link>
               </div>
             </Card>
 
             <Card className="p-4">
-              <h3 className="text-sm font-semibold text-slate-800 mb-3">Leave Balance</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-800">Leave Balance</h3>
+                <Link href="/hr?tab=leaves" className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900 group">
+                  Manage <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold text-slate-900">{teacher?.leaveBalance}</p>

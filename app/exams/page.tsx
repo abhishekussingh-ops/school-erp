@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,12 +14,26 @@ import { examTerms, examSubjects, examMarks, reportCards, students, classSection
 
 export default function ExamsPage() {
   const { role } = useApp();
+  const searchParams = useSearchParams();
   const isAdmin = role === 'school_admin' || role === 'super_admin';
   const isTeacher = role === 'teacher';
   const isParentOrStudent = role === 'parent' || role === 'student';
   const [tab, setTab] = useState<'setup' | 'marks' | 'results' | 'analytics'>('setup');
   const [selectedTerm, setSelectedTerm] = useState(examTerms[0].id);
   const [selectedClass, setSelectedClass] = useState(classSections[0].id);
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    const qExam = searchParams.get('exam');
+    if (qTab === 'marks') setTab('marks');
+    else if (qTab === 'datesheet' || qTab === 'setup') setTab('setup');
+    else if (qTab === 'reports' || qTab === 'results') setTab('results');
+    else if (qTab === 'analytics') setTab('analytics');
+    if (qExam) {
+      const match = examTerms.find(t => t.id === qExam || t.name === qExam);
+      if (match) setSelectedTerm(match.id);
+    }
+  }, [searchParams]);
 
   const termSubjects = examSubjects.filter(es => es.termId === selectedTerm && es.classSectionId === selectedClass);
   const classStudents = students.filter(s => s.classSectionId === selectedClass);

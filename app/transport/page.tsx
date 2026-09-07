@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,12 +13,23 @@ import { transportRoutes, vehicles, students } from '@/lib/mock-data';
 
 export default function TransportPage() {
   const { role } = useApp();
+  const searchParams = useSearchParams();
   const isAdmin = role === 'school_admin' || role === 'super_admin';
   const isParentOrStudent = role === 'parent' || role === 'student';
   const [selectedRoute, setSelectedRoute] = useState(transportRoutes[0].id);
   const [liveProgress, setLiveProgress] = useState<Record<string, number>>(
     transportRoutes.reduce((acc, r) => ({ ...acc, [r.id]: r.progress }), {})
   );
+
+  useEffect(() => {
+    const qRouteId = searchParams.get('routeId');
+    const qTab = searchParams.get('tab');
+    if (qRouteId) {
+      const match = transportRoutes.find(r => r.id === qRouteId);
+      if (match) setSelectedRoute(match.id);
+    }
+    // tab=live-map just scrolls to the map; routes/vehicles could select route
+  }, [searchParams]);
 
   // Simulate live GPS movement
   useEffect(() => {

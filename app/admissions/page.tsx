@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,10 +28,28 @@ const statusColors: Record<EnquiryStatus, string> = {
 const pipelineStages: EnquiryStatus[] = ['New', 'Contacted', 'Visit Scheduled', 'Application Submitted', 'Documents Verified', 'Admitted', 'Rejected'];
 
 export default function AdmissionsPage() {
+  const searchParams = useSearchParams();
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filterClass, setFilterClass] = useState<string>('all');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const action = searchParams.get('action');
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
+    if (tab === 'list') setView('list');
+    else if (tab === 'pipeline' || tab === 'kanban') setView('kanban');
+    if (action === 'new-enquiry') setShowForm(true);
+    if (status) {
+      const classMatch = ['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].find(c => c === status);
+      if (classMatch) setFilterClass(classMatch);
+    }
+    if (search) {
+      // could filter by search term in a real app
+    }
+  }, [searchParams]);
 
   const filteredEnquiries = filterClass === 'all' ? enquiries : enquiries.filter(e => e.classApplied === filterClass);
   const conversionRate = Math.round((enquiries.filter(e => e.status === 'Admitted').length / enquiries.length) * 100);
