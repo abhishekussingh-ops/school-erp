@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,11 +16,26 @@ const periods = [1, 2, 3, 4, 5, 6];
 
 export default function TimetablePage() {
   const { role } = useApp();
+  const searchParams = useSearchParams();
   const isAdmin = role === 'school_admin' || role === 'super_admin';
   const isTeacher = role === 'teacher';
   const [view, setView] = useState<'class' | 'teacher'>('class');
   const [selectedClass, setSelectedClass] = useState(classSections[0].id);
   const [selectedTeacher, setSelectedTeacher] = useState(staff[1].id);
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    const qView = searchParams.get('view');
+    if (qView === 'teacher') setView('teacher');
+    else if (qView === 'class') setView('class');
+    if (qTab === 'substitutes') {
+      // scroll to substitute section
+    } else if (qTab === 'classes') {
+      setView('class');
+    } else if (qTab === 'teachers') {
+      setView('teacher');
+    }
+  }, [searchParams]);
 
   const classSlots = timetableSlots.filter(t => t.classSectionId === selectedClass);
   const teacherSlots = timetableSlots.filter(t => t.teacherId === selectedTeacher);

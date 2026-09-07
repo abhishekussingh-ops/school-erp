@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 
 interface KpiCardProps {
   label: string;
@@ -12,18 +13,13 @@ interface KpiCardProps {
   icon: React.ComponentType<{ className?: string }>;
   iconColor: string;
   iconBg: string;
+  href?: string;
   onClick?: () => void;
 }
 
-export function KpiCard({ label, value, change, trend = 'neutral', icon: Icon, iconColor, iconBg, onClick }: KpiCardProps) {
-  return (
-    <Card
-      className={cn(
-        'p-4 transition-all hover:shadow-md',
-        onClick && 'cursor-pointer hover:border-slate-300'
-      )}
-      onClick={onClick}
-    >
+export function KpiCard({ label, value, change, trend = 'neutral', icon: Icon, iconColor, iconBg, href, onClick }: KpiCardProps) {
+  const content = (
+    <>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-slate-500">{label}</p>
@@ -44,10 +40,30 @@ export function KpiCard({ label, value, change, trend = 'neutral', icon: Icon, i
             </div>
           )}
         </div>
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', iconBg)}>
-          <Icon className={cn('h-5 w-5', iconColor)} />
+        <div className="flex items-center gap-1">
+          <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', iconBg)}>
+            <Icon className={cn('h-5 w-5', iconColor)} />
+          </div>
+          {href && <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-600 transition-colors" />}
         </div>
       </div>
-    </Card>
+    </>
+  );
+
+  const className = cn(
+    'p-4 transition-all duration-200 group',
+    (href || onClick) && 'cursor-pointer hover:shadow-md hover:border-slate-300'
+  );
+
+  if (href) {
+    return (
+      <Link href={href}>
+        <Card className={className}>{content}</Card>
+      </Link>
+    );
+  }
+
+  return (
+    <Card className={className} onClick={onClick}>{content}</Card>
   );
 }

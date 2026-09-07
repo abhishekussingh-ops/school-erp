@@ -1,18 +1,20 @@
 'use client';
 
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { CreditCard, UserPlus, CalendarCheck, FileText, Bell, User } from 'lucide-react';
+import { CreditCard, UserPlus, FileText, CalendarCheck, Bell, User, ChevronRight } from 'lucide-react';
 
-interface Activity {
+interface ActivityItem {
   id: string;
   type: 'payment' | 'enquiry' | 'leave' | 'attendance' | 'notice' | 'admission';
   message: string;
   time: string;
   amount?: number;
+  href?: string;
 }
 
-export function ActivityFeed({ activities }: { activities: Activity[] }) {
+export function ActivityFeed({ activities }: { activities: ActivityItem[] }) {
   const iconMap = {
     payment: { icon: CreditCard, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     enquiry: { icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -28,8 +30,8 @@ export function ActivityFeed({ activities }: { activities: Activity[] }) {
       <div className="space-y-1">
         {activities.map((act) => {
           const { icon: Icon, color, bg } = iconMap[act.type];
-          return (
-            <div key={act.id} className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
+          const inner = (
+            <div className="flex items-start gap-3 rounded-lg px-2 py-2 group transition-colors hover:bg-slate-50">
               <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', bg)}>
                 <Icon className={cn('h-4 w-4', color)} />
               </div>
@@ -42,8 +44,14 @@ export function ActivityFeed({ activities }: { activities: Activity[] }) {
                   )}
                 </div>
               </div>
+              {act.href && <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-600 transition-colors shrink-0 mt-1" />}
             </div>
           );
+
+          if (act.href) {
+            return <Link key={act.id} href={act.href}>{inner}</Link>;
+          }
+          return <div key={act.id}>{inner}</div>;
         })}
       </div>
     </Card>

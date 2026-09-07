@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,19 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { staff, payrollRecords, leaveRequests, staffAttendance } from '@/lib/mock-data';
 
 export default function HRPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<'directory' | 'payroll' | 'leave' | 'reports'>('directory');
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    const qStatus = searchParams.get('status');
+    if (qTab === 'directory') setTab('directory');
+    else if (qTab === 'payroll') setTab('payroll');
+    else if (qTab === 'leaves' || qTab === 'leave') setTab('leave');
+    else if (qTab === 'reports') setTab('reports');
+    if (qStatus === 'pending_approval' || qStatus === 'pending') setTab('leave');
+  }, [searchParams]);
 
   const totalSalary = staff.reduce((s, st) => s + st.salary, 0);
   const departments = Array.from(new Set(staff.map(s => s.department)));

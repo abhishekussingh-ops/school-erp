@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,12 +15,26 @@ import { notices, homeworks, messages, tickets, classSections, students } from '
 
 export default function CommunicationPage() {
   const { role } = useApp();
+  const searchParams = useSearchParams();
   const isAdmin = role === 'school_admin' || role === 'super_admin';
   const isTeacher = role === 'teacher';
   const [tab, setTab] = useState<'notices' | 'homework' | 'messages' | 'tickets'>('notices');
   const [showNoticeForm, setShowNoticeForm] = useState(false);
   const [showHomeworkForm, setShowHomeworkForm] = useState(false);
   const [messageText, setMessageText] = useState('');
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    const qAction = searchParams.get('action');
+    if (qTab === 'notices') setTab('notices');
+    else if (qTab === 'homework') setTab('homework');
+    else if (qTab === 'chat' || qTab === 'messages') setTab('messages');
+    else if (qTab === 'tickets') setTab('tickets');
+    if (qAction === 'compose' || qAction === 'create') {
+      if (qTab === 'homework') setShowHomeworkForm(true);
+      else setShowNoticeForm(true);
+    }
+  }, [searchParams]);
 
   return (
     <div className="animate-fade-in">

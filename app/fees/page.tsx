@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,9 +40,28 @@ const headWiseIncome = [
 
 export default function FeesPage() {
   const { role, currentUser } = useApp();
+  const searchParams = useSearchParams();
   const [showPayment, setShowPayment] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [tab, setTab] = useState<'collection' | 'structure' | 'ledger' | 'receipts' | 'reports'>('collection');
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    const qFilter = searchParams.get('filter');
+    const qStudentId = searchParams.get('studentId');
+    const qAction = searchParams.get('action');
+    if (qTab === 'defaulters' || qTab === 'collection') setTab('collection');
+    else if (qTab === 'ledger') setTab('ledger');
+    else if (qTab === 'receipts') setTab('receipts');
+    else if (qTab === 'reports') setTab('reports');
+    else if (qTab === 'structure') setTab('structure');
+    if (qStudentId) setSelectedStudentId(qStudentId);
+    if (qAction === 'collect' || qAction === 'pay') {
+      const sid = qStudentId || (isParent ? (currentUser.linkedStudentIds?.[0] || 'st1') : isStudent ? (currentUser.linkedStudentId || 'st1') : 'st1');
+      setSelectedStudentId(sid);
+      setShowPayment(true);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalCollected = feeInstallments.filter(fi => fi.status === 'Paid').reduce((s, fi) => s + fi.amount, 0);
   const totalDue = feeInstallments.filter(fi => fi.status === 'Due').reduce((s, fi) => s + fi.amount, 0);

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,12 +20,26 @@ const statusConfig: Record<string, { color: string; bg: string; icon: typeof Che
 
 export default function AttendancePage() {
   const { role } = useApp();
+  const searchParams = useSearchParams();
   const isAdmin = role === 'school_admin' || role === 'super_admin';
   const isTeacher = role === 'teacher';
   const isParentOrStudent = role === 'parent' || role === 'student';
   const [selectedClass, setSelectedClass] = useState(classSections[0].id);
   const [attendance, setAttendance] = useState<Record<string, 'Present' | 'Absent' | 'Late' | 'Half-day'>>({});
   const [tab, setTab] = useState<'mark' | 'staff' | 'reports' | 'leave'>('mark');
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    const qClass = searchParams.get('class');
+    if (qTab === 'students' || qTab === 'mark') setTab('mark');
+    else if (qTab === 'staff') setTab('staff');
+    else if (qTab === 'reports' || qTab === 'summary') setTab('reports');
+    else if (qTab === 'leaves' || qTab === 'leave') setTab('leave');
+    if (qClass) {
+      const match = classSections.find(c => `${c.className}${c.section}` === qClass || c.id === qClass);
+      if (match) setSelectedClass(match.id);
+    }
+  }, [searchParams]);
 
   const classStudents = students.filter(s => s.classSectionId === selectedClass);
   const todayStr = new Date().toISOString().split('T')[0];
