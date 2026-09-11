@@ -9,6 +9,31 @@ import { Upload, X } from 'lucide-react';
 
 export function EnquiryForm({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    studentName: '',
+    parentName: '',
+    phone: '',
+    email: '',
+    classApplied: 'Grade 6',
+    source: 'Walk-in'
+  });
+
+  const handleSubmit = async () => {
+    try {
+      const response = await fetch('/api/enquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (response.ok) {
+        onClose();
+      } else {
+        console.error('Failed to submit');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -31,23 +56,47 @@ export function EnquiryForm({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-slate-600">Student Name</Label>
-                <Input placeholder="Full name" className="mt-1" />
+                <Input
+                  placeholder="Full name"
+                  className="mt-1"
+                  value={formData.studentName}
+                  onChange={(e) => setFormData({...formData, studentName: e.target.value})}
+                />
               </div>
               <div>
                 <Label className="text-xs text-slate-600">Parent/Guardian Name</Label>
-                <Input placeholder="Parent name" className="mt-1" />
+                <Input
+                  placeholder="Parent name"
+                  className="mt-1"
+                  value={formData.parentName}
+                  onChange={(e) => setFormData({...formData, parentName: e.target.value})}
+                />
               </div>
               <div>
                 <Label className="text-xs text-slate-600">Phone</Label>
-                <Input placeholder="+91" className="mt-1" />
+                <Input
+                  placeholder="+91"
+                  className="mt-1"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                />
               </div>
               <div>
                 <Label className="text-xs text-slate-600">Email</Label>
-                <Input placeholder="email@example.com" className="mt-1" />
+                <Input
+                  placeholder="email@example.com"
+                  className="mt-1"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                />
               </div>
               <div>
                 <Label className="text-xs text-slate-600">Class Applying For</Label>
-                <select className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm mt-1 focus:outline-none">
+                <select
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm mt-1 focus:outline-none"
+                  value={formData.classApplied}
+                  onChange={(e) => setFormData({...formData, classApplied: e.target.value})}
+                >
                   <option>Grade 6</option>
                   <option>Grade 7</option>
                   <option>Grade 8</option>
@@ -57,7 +106,11 @@ export function EnquiryForm({ onClose }: { onClose: () => void }) {
               </div>
               <div>
                 <Label className="text-xs text-slate-600">Source</Label>
-                <select className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm mt-1 focus:outline-none">
+                <select
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm mt-1 focus:outline-none"
+                  value={formData.source}
+                  onChange={(e) => setFormData({...formData, source: e.target.value})}
+                >
                   <option>Walk-in</option>
                   <option>Phone</option>
                   <option>Website</option>
@@ -113,10 +166,11 @@ export function EnquiryForm({ onClose }: { onClose: () => void }) {
 
             <div className="flex justify-between gap-2">
               <Button variant="outline" size="sm" onClick={() => setStep(1)}>Back</Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={onClose}>Submit Application</Button>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSubmit}>Submit Application</Button>
             </div>
           </div>
-        )}
+        )
+}
       </DialogContent>
     </Dialog>
   );
