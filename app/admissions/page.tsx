@@ -78,32 +78,42 @@ export default function AdmissionsPage() {
 
       <div className="space-y-4 p-4 md:p-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-          <Card className="p-3">
-            <p className="text-xs text-slate-500">Total Enquiries</p>
-            <p className="text-xl font-bold text-slate-900">{enquiries.length}</p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-slate-500">In Pipeline</p>
-            <p className="text-xl font-bold text-blue-600">{enquiries.filter(e => !['Admitted', 'Rejected'].includes(e.status)).length}</p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-slate-500">Admitted</p>
-            <p className="text-xl font-bold text-emerald-600">{enquiries.filter(e => e.status === 'Admitted').length}</p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-slate-500">Rejected</p>
-            <p className="text-xl font-bold text-rose-600">{enquiries.filter(e => e.status === 'Rejected').length}</p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-slate-500">Conversion Rate</p>
-            <p className="text-xl font-bold text-slate-900">{conversionRate}%</p>
-          </Card>
-          <Card className="p-3">
-            <p className="text-xs text-slate-500">Follow-ups Due</p>
-            <p className="text-xl font-bold text-amber-600">{enquiries.filter(e => e.followUpDate).length}</p>
-          </Card>
-        </div>
+        <Collapsible open={isStatsOpen} onOpenChange={setIsStatsOpen} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <Card className="p-3">
+              <p className="text-xs text-slate-500">Total Enquiries</p>
+              <p className="text-xl font-bold text-slate-900">{enquiries.length}</p>
+            </Card>
+            <Card className="p-3">
+              <p className="text-xs text-slate-500">In Pipeline</p>
+              <p className="text-xl font-bold text-blue-600">{enquiries.filter(e => !['Admitted', 'Rejected'].includes(e.status)).length}</p>
+            </Card>
+            <Card className="p-3">
+              <p className="text-xs text-slate-500">Admitted</p>
+              <p className="text-xl font-bold text-emerald-600">{enquiries.filter(e => e.status === 'Admitted').length}</p>
+            </Card>
+          </div>
+          <CollapsibleTrigger className="flex items-center text-xs text-slate-500 hover:text-slate-800">
+            {isStatsOpen ? 'Hide details' : 'Show more metrics'}
+            <ChevronDown className={cn("ml-1 h-3 w-3 transition-transform", isStatsOpen && "rotate-180")} />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <Card className="p-3">
+                <p className="text-xs text-slate-500">Rejected</p>
+                <p className="text-xl font-bold text-rose-600">{enquiries.filter(e => e.status === 'Rejected').length}</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-slate-500">Conversion Rate</p>
+                <p className="text-xl font-bold text-slate-900">{conversionRate}%</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-slate-500">Follow-ups Due</p>
+                <p className="text-xl font-bold text-amber-600">{enquiries.filter(e => e.followUpDate).length}</p>
+              </Card>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* View Toggle + Filters */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -147,57 +157,65 @@ export default function AdmissionsPage() {
           <EnquiryTable enquiries={filteredEnquiries} onSelect={setSelectedEnquiry} />
         )}
 
-        {/* Source-wise Performance */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Source-wise Performance</h3>
-            <div className="space-y-2">
-              {['Walk-in', 'Website', 'Phone', 'Referral'].map(source => {
-                const sourceEnquiries = enquiries.filter(e => e.source === source);
-                const admitted = sourceEnquiries.filter(e => e.status === 'Admitted').length;
-                const rate = sourceEnquiries.length > 0 ? Math.round((admitted / sourceEnquiries.length) * 100) : 0;
-                return (
-                  <div key={source} className="flex items-center gap-3">
-                    <div className="w-20 text-sm text-slate-600">{source}</div>
-                    <div className="flex-1">
-                      <div className="h-6 w-full rounded-full bg-slate-100">
-                        <div className="flex h-6 items-center rounded-full bg-blue-500 px-2 text-[10px] font-semibold text-white" style={{ width: `${Math.max(rate, 15)}%` }}>
-                          {rate > 15 && `${rate}%`}
+        {/* Analytics (Collapsed) */}
+        <Collapsible className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <CollapsibleTrigger className="flex w-full items-center justify-between text-sm font-semibold text-slate-800">
+            Analytics
+            <ChevronDown className="h-4 w-4 text-slate-500" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 pt-4">
+              <Card className="p-4">
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Source-wise Performance</h3>
+                <div className="space-y-2">
+                  {['Walk-in', 'Website', 'Phone', 'Referral'].map(source => {
+                    const sourceEnquiries = enquiries.filter(e => e.source === source);
+                    const admitted = sourceEnquiries.filter(e => e.status === 'Admitted').length;
+                    const rate = sourceEnquiries.length > 0 ? Math.round((admitted / sourceEnquiries.length) * 100) : 0;
+                    return (
+                      <div key={source} className="flex items-center gap-3">
+                        <div className="w-20 text-sm text-slate-600">{source}</div>
+                        <div className="flex-1">
+                          <div className="h-6 w-full rounded-full bg-slate-100">
+                            <div className="flex h-6 items-center rounded-full bg-blue-500 px-2 text-[10px] font-semibold text-white" style={{ width: `${Math.max(rate, 15)}%` }}>
+                              {rate > 15 && `${rate}%`}
+                            </div>
+                          </div>
                         </div>
+                        <div className="w-16 text-right text-xs text-slate-500">{admitted}/{sourceEnquiries.length}</div>
                       </div>
-                    </div>
-                    <div className="w-16 text-right text-xs text-slate-500">{admitted}/{sourceEnquiries.length}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+                    );
+                  })}
+                </div>
+              </Card>
 
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Class-wise Seat Availability</h3>
-            <div className="space-y-2">
-              {['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].map(cls => {
-                const capacity = 35;
-                const occupied = 10;
-                const available = capacity - occupied;
-                const pct = Math.round((occupied / capacity) * 100);
-                return (
-                  <div key={cls} className="flex items-center gap-3">
-                    <div className="w-20 text-sm text-slate-600">{cls}</div>
-                    <div className="flex-1">
-                      <div className="h-6 w-full rounded-full bg-slate-100">
-                        <div className={cn('flex h-6 items-center rounded-full px-2 text-[10px] font-semibold text-white', pct > 80 ? 'bg-rose-500' : pct > 50 ? 'bg-amber-500' : 'bg-emerald-500')} style={{ width: `${Math.max(pct, 15)}%` }}>
-                          {pct > 15 && `${occupied}/${capacity}`}
+              <Card className="p-4">
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Class-wise Seat Availability</h3>
+                <div className="space-y-2">
+                  {['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'].map(cls => {
+                    const capacity = 35;
+                    const occupied = 10;
+                    const available = capacity - occupied;
+                    const pct = Math.round((occupied / capacity) * 100);
+                    return (
+                      <div key={cls} className="flex items-center gap-3">
+                        <div className="w-20 text-sm text-slate-600">{cls}</div>
+                        <div className="flex-1">
+                          <div className="h-6 w-full rounded-full bg-slate-100">
+                            <div className={cn('flex h-6 items-center rounded-full px-2 text-[10px] font-semibold text-white', pct > 80 ? 'bg-rose-500' : pct > 50 ? 'bg-amber-500' : 'bg-emerald-500')} style={{ width: `${Math.max(pct, 15)}%` }}>
+                              {pct > 15 && `${occupied}/${capacity}`}
+                            </div>
+                          </div>
                         </div>
+                        <div className="w-16 text-right text-xs text-slate-500">{available} seats</div>
                       </div>
-                    </div>
-                    <div className="w-16 text-right text-xs text-slate-500">{available} seats</div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </Card>
             </div>
-          </Card>
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {selectedEnquiry && (
